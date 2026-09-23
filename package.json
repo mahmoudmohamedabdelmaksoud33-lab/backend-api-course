@@ -1,0 +1,12 @@
+{
+  "name": "backend-entry-task",
+  "version": "1.0.0",
+  "description": "A plain JavaScript `TaskStore` class designed to manage tasks without external dependencies. It supports core CRUD operations, filtering, sorting, status counting, and fetching tasks from an external API.",
+  "main": "taskStore.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
