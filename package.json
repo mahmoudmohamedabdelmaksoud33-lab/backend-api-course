@@ -1,31 +1,21 @@
 {
-<<<<<<< HEAD
   "name": "new-project",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-=======
-  "name": "backend-entry-task",
-  "version": "1.0.0",
-  "description": "A plain JavaScript `TaskStore` class designed to manage tasks without external dependencies. It supports core CRUD operations, filtering, sorting, status counting, and fetching tasks from an external API.",
-  "main": "taskStore.js",
->>>>>>> 278c6c71499297a9f34bf62d4d43cdcb77cb566d
+  "description": "Backend API course project with TypeORM and Express",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-<<<<<<< HEAD
-  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1",
-    "typeorm": "^1.1.2"
-  }
-=======
+    "typeorm": "^1.1.2",
+    "zod": "^4.6.5"
+  },
+  "keywords": [],
+  "author": "",
   "license": "ISC"
->>>>>>> 278c6c71499297a9f34bf62d4d43cdcb77cb566d
 }

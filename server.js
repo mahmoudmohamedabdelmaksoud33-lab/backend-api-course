@@ -1,153 +1,98 @@
-require("dotenv").config();
 const express = require("express");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const AppDataSource = require("./db");
-const User = require("./entities/user.js");
-const Note = require("./entities/note.js");
-const authMiddleware = require("./middleware/auth.middleware.js");
+const User = require("./entities/user");
+const Note = require("./entities/note");
+const authMiddleware = require("./middleware/auth.middleware");
+const adminMiddleware = require("./middleware/admin.middleware");
+const { registerSchema, loginSchema } = require("./validators/auth.validator");
 
 const app = express();
 app.use(express.json());
 
+// register with Zod Validation
+app.post("/auth/register", async (req, res, next) => {
+  try {
+    const validatedData = registerSchema.parse(req.body);
+    const userRepository = AppDataSource.getRepository(User);
+
+    const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+
+    const newUser = userRepository.create({
+      username: validatedData.username,
+      email: validatedData.email,
+      password: hashedPassword,
+      role: validatedData.role || "user",
+    });
+
+    await userRepository.save(newUser);
+    res.status(201).json({
+      message: "User registered successfully",
+      user: { username: newUser.username, role: newUser.role },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// login
+app.post("/auth/login", async (req, res, next) => {
+  try {
+    const validatedData = loginSchema.parse(req.body);
+    const userRepository = AppDataSource.getRepository(User);
+
+    const user = await userRepository.findOneBy({
+      username: validatedData.username,
+    });
+    if (
+      !user ||
+      !(await bcrypt.compare(validatedData.password, user.password))
+    ) {
+      const err = new Error("Invalid username or password");
+      err.statusCode = 401;
+      throw err;
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "1h" },
+    );
+
+    res.json({ message: "Logged in successfully", token });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/admin/dashboard", authMiddleware, adminMiddleware, (req, res) => {
+  res.json({ message: `Welcome to the Admin Dashboard, ${req.user.username}` });
+});
+
+// Global Error Handler (Middleware)
+app.use((err, req, res, next) => {
+  let statusCode = err.statusCode || 500;
+  let message = err.message || "Internal Server Error";
+
+  if (err.name === "ZodError" || err.issues) {
+    statusCode = 400;
+    const issues = err.errors || err.issues || [];
+    message = issues.map((e) => e.message).join(" | ");
+  }
+
+  res.status(statusCode).json({
+    status: "fail",
+    error: message,
+  });
+});
+
+// Run
 AppDataSource.initialize()
   .then(() => {
     console.log("Database connected successfully!");
-
-    const userRepository = AppDataSource.getRepository(User);
-    const noteRepository = AppDataSource.getRepository(Note);
-
-    // Register
-    app.post("/auth/register", async (req, res) => {
-      try {
-        const { email, password } = req.body;
-
-        const existingUser = await userRepository.findOneBy({ email });
-        if (existingUser) {
-          return res.status(400).json({ message: "Email already registered" });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const user = userRepository.create({ email, password: hashedPassword });
-        await userRepository.save(user);
-
-        res.status(201).json({ message: "User registered successfully" });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // Login
-    app.post("/auth/login", async (req, res) => {
-      try {
-        const { email, password } = req.body;
-
-        const user = await userRepository.findOneBy({ email });
-        if (!user) {
-          return res.status(400).json({ message: "Invalid credentials" });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-          return res.status(400).json({ message: "Invalid credentials" });
-        }
-
-        const token = jwt.sign(
-          { userId: user.id, email: user.email },
-          process.env.JWT_SECRET,
-          { expiresIn: process.env.JWT_EXPIRES_IN },
-        );
-
-        res.json({ message: "Login successful", token });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // Create Note
-    app.post("/notes", authMiddleware, async (req, res) => {
-      try {
-        const { title, content } = req.body;
-        const userId = req.user.userId;
-
-        const user = await userRepository.findOneBy({ id: userId });
-        const note = noteRepository.create({ title, content, user });
-        const result = await noteRepository.save(note);
-
-        res.status(201).json(result);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // Get Notes
-    app.get("/notes/my-notes", authMiddleware, async (req, res) => {
-      try {
-        const userId = req.user.userId;
-
-        const notes = await noteRepository.find({
-          where: { user: { id: userId } },
-        });
-
-        res.json(notes);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // Update Note
-    app.put("/notes/:id", authMiddleware, async (req, res) => {
-      try {
-        const { id } = req.params;
-        const { title, content } = req.body;
-        const userId = req.user.userId;
-
-        const note = await noteRepository.findOne({
-          where: { id: Number(id), user: { id: userId } },
-        });
-
-        if (!note) {
-          return res
-            .status(404)
-            .json({ message: "Note not found or unauthorized" });
-        }
-
-        if (title !== undefined) note.title = title;
-        if (content !== undefined) note.content = content;
-
-        const updatedNote = await noteRepository.save(note);
-        res.json(updatedNote);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // Delete Note
-    app.delete("/notes/:id", authMiddleware, async (req, res) => {
-      try {
-        const { id } = req.params;
-        const userId = req.user.userId;
-
-        const note = await noteRepository.findOne({
-          where: { id: Number(id), user: { id: userId } },
-        });
-
-        if (!note) {
-          return res
-            .status(404)
-            .json({ message: "Note not found or unauthorized" });
-        }
-
-        await noteRepository.remove(note);
-        res.json({ message: "Note deleted successfully" });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    app.listen(process.env.PORT || 5000, () => {
+      console.log(`Server is running on port ${process.env.PORT || 5000}`);
     });
   })
-  .catch((error) => console.log("DB Connection Error:", error));
+  .catch((err) => console.error("Database connection failed:", err));
