@@ -1,5 +1,7 @@
 require("dotenv").config();
 const { DataSource } = require("typeorm");
+const User = require("./entities/user");
+const Note = require("./entities/note");
 
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -10,7 +12,7 @@ const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   synchronize: true,
   logging: false,
-  entities: ["entities/*.js"],
+  entities: [User, Note],
 });
 
 module.exports = AppDataSource;

@@ -4,7 +4,8 @@
   "description": "Backend API course project with TypeORM and Express",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node src/server.js",
+    "test": "jest"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -17,5 +18,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^30.5.2"
+  }
 }
